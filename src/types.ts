@@ -28,3 +28,14 @@ export interface Cliente {
   endereco?: string;
   dataCadastro: string;
 }
+
+export interface Veiculo {
+  id: string;
+  clienteId: string;
+  marca: string;
+  modelo: string;
+  placa: string;
+  ano: string;
+  cor?: string;
+  dataCadastro: string;
+}

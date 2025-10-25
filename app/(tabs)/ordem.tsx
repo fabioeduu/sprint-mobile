@@ -3,8 +3,9 @@ import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, 
 import Container from "../../components/Container";
 import { getOrdens, deleteOrdem, createOrdem, updateOrdem, getOrdemById } from "../../src/services/orders";
 import { getClientes } from "../../src/services/clientes";
+import { getVeiculos } from "../../src/services/veiculos";
 import { useFocusEffect } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Servico, Cliente } from "../../src/types";
 
 type Tab = "listar" | "criar" | "editar";
@@ -14,10 +15,13 @@ export default function OrdensPage() {
   const [tab, setTab] = useState<Tab>("listar");
   const [ordens, setOrdens] = useState<any[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [veiculos, setVeiculos] = useState<any[]>([]);
   const [defeito, setDefeito] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [clienteId, setClienteId] = useState<string>("");
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
+  const [veiculoId, setVeiculoId] = useState<string>("");
+  const [veiculoSelecionado, setVeiculoSelecionado] = useState<any | null>(null);
   const [servicoDesc, setServicoDesc] = useState("");
   const [servicoValor, setServicoValor] = useState("");
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -25,6 +29,8 @@ export default function OrdensPage() {
   const [editObservacoes, setEditObservacoes] = useState("");
   const [editStatus, setEditStatus] = useState("ABERTA");
   const [showClienteList, setShowClienteList] = useState(false);
+  const [showVeiculoList, setShowVeiculoList] = useState(false);
+  const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
@@ -32,9 +38,11 @@ export default function OrdensPage() {
       const load = async () => {
         const data = await getOrdens();
         const clientesData = await getClientes();
+        const veiculosData = await getVeiculos();
         if (mounted) {
           setOrdens(data.reverse());
           setClientes(clientesData);
+          setVeiculos(veiculosData);
         }
         if (queryId && mounted) {
           const o = await getOrdemById(String(queryId));
@@ -65,6 +73,15 @@ export default function OrdensPage() {
     setClienteId(cliente.id);
     setClienteSelecionado(cliente);
     setShowClienteList(false);
+    // reset vehicle selection when client changes
+    setVeiculoId('');
+    setVeiculoSelecionado(null);
+  };
+
+  const selecionarVeiculo = (v: any) => {
+    setVeiculoId(v.id);
+    setVeiculoSelecionado(v);
+    setShowVeiculoList(false);
   };
 
   const salvarNova = async () => {
@@ -73,18 +90,29 @@ export default function OrdensPage() {
         Alert.alert("Erro", "Preencha o defeito");
         return;
       }
+      if (!clienteId) {
+        Alert.alert('Erro', 'Selecione o cliente');
+        return;
+      }
+      if (!veiculoId) {
+        Alert.alert('Erro', 'Selecione o veículo do cliente');
+        return;
+      }
       await createOrdem({ 
         defeito, 
         observacoes, 
         servicos, 
         status: "ABERTA",
-        clienteId: clienteId || undefined
+        clienteId: clienteId || undefined,
+        veiculoId: veiculoId || undefined,
       });
       Alert.alert("Sucesso", "Ordem criada");
       setDefeito("");
       setObservacoes("");
       setClienteId("");
       setClienteSelecionado(null);
+      setVeiculoId('');
+      setVeiculoSelecionado(null);
       setServicos([]);
       setTab("listar");
       const data = await getOrdens();
@@ -208,6 +236,37 @@ export default function OrdensPage() {
             </View>
           )}
 
+              <Text style={styles.label}>Veículo *</Text>
+              <TouchableOpacity 
+                style={styles.clienteButton}
+                onPress={() => setShowVeiculoList(!showVeiculoList)}
+              >
+                <Text style={styles.clienteButtonText}>
+                  {veiculoSelecionado ? `${veiculoSelecionado.marca} ${veiculoSelecionado.modelo} — ${veiculoSelecionado.placa}` : (clienteSelecionado ? 'Selecione um veículo' : 'Selecione um cliente primeiro')}
+                </Text>
+              </TouchableOpacity>
+
+              {showVeiculoList && (
+                <View style={styles.clienteListContainer}>
+                  <FlatList
+                    data={veiculos.filter(v => v.clienteId === clienteId)}
+                    keyExtractor={(v) => v.id}
+                    scrollEnabled={false}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity 
+                        style={styles.clienteListItem}
+                        onPress={() => selecionarVeiculo(item)}
+                      >
+                        <Text style={styles.clienteListItemText}>{item.marca} {item.modelo} — {item.placa}</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                  <TouchableOpacity style={{ padding: 12, alignItems: 'center' }} onPress={() => router.push('/(tabs)/veiculos?clienteId=' + (clienteId || ''))}>
+                    <Text style={{ color: '#2596be', fontWeight: '600' }}>Cadastrar veículo</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
           <Text style={styles.label}>Defeito *</Text>
           <TextInput 
             placeholder="Descreva o defeito" 
@@ -264,6 +323,7 @@ export default function OrdensPage() {
             <>
               <Text style={styles.title}>Ordem #{selectedOrdem.numero}</Text>
               <Text style={styles.clienteInfo}>👤 {getNomeCliente(selectedOrdem.clienteId)}</Text>
+              <Text style={styles.clienteInfo}>🚗 {veiculos.find(v => v.id === selectedOrdem.veiculoId)?.marca || ''} {veiculos.find(v => v.id === selectedOrdem.veiculoId)?.modelo || ''} {veiculos.find(v => v.id === selectedOrdem.veiculoId)?.placa ? '— ' + veiculos.find(v => v.id === selectedOrdem.veiculoId)?.placa : ''}</Text>
               <Text style={styles.label}>Status</Text>
               <View style={{ flexDirection: "row", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
                 {["ABERTA", "EM_ANDAMENTO", "AGUARDANDO_PECAS", "CONCLUIDA", "CANCELADA"].map((s) => (

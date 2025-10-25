@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 let Font: any;
 try {
   Font = require('expo-font');
@@ -40,11 +41,13 @@ export default function TabsLayout() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
       <Container>
         <Slot />
       </Container>
-      <FooterNav />
+      <SafeAreaView edges={["bottom"]} style={{ backgroundColor: 'transparent' }}>
+        <FooterNav />
+      </SafeAreaView>
     </View>
   );
 }

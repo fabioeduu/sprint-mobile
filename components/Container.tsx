@@ -1,4 +1,5 @@
-import React, { ReactNode } from 'react';
+import * as React from 'react';
+import { ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
