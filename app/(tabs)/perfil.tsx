@@ -1,46 +1,52 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Container from '../../components/Container';
-import { useFocusEffect } from '@react-navigation/native';
-import { getOrdens } from '../../src/services/orders';
-import { getClientes } from '../../src/services/clientes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useOrdens, useClientes } from '../../src/hooks';
 
 export default function PerfilPage() {
-  const [stats, setStats] = useState({
-    totalOrdens: 0,
-    totalClientes: 0,
-  });
+  const router = useRouter();
+  const { ordens } = useOrdens();
+  const { clientes } = useClientes();
+  const totalOrdens = ordens.length;
+  const totalClientes = clientes.length;
+  const [profile, setProfile] = useState<any | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let mounted = true;
-      const loadStats = async () => {
-        const ordens = await getOrdens();
-        const clientes = await getClientes();
-        
-        if (mounted) {
-          setStats({
-            totalOrdens: ordens.length,
-            totalClientes: clientes.length,
-          });
-        }
-      };
-      loadStats();
-      return () => { mounted = false; };
-    }, [])
-  );
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const json = await AsyncStorage.getItem('@osfacil:profile');
+        if (json && mounted) setProfile(JSON.parse(json));
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
 
   return (
     <ScrollView style={styles.container}>
       <Container>
         <Text style={styles.title}>Perfil</Text>
 
+        {profile && (
+          <View style={styles.profileBox}>
+            <Text style={styles.profileName}>{profile.nome || 'Usuário'}</Text>
+            {profile.email ? <Text style={styles.profileText}>{profile.email}</Text> : null}
+            {profile.telefone ? <Text style={styles.profileText}>{profile.telefone}</Text> : null}
+            {profile.endereco ? <Text style={styles.profileText}>{profile.endereco}</Text> : null}
+          </View>
+        )}
+
         <View style={styles.statItem}>
           <Ionicons name="list" size={24} color="#2596be" />
           <View style={styles.statContent}>
             <Text style={styles.statLabel}>Total de Ordens</Text>
-            <Text style={styles.statValue}>{stats.totalOrdens}</Text>
+            <Text style={styles.statValue}>{totalOrdens}</Text>
           </View>
         </View>
 
@@ -48,7 +54,7 @@ export default function PerfilPage() {
           <Ionicons name="people" size={24} color="#2596be" />
           <View style={styles.statContent}>
             <Text style={styles.statLabel}>Total de Clientes</Text>
-            <Text style={styles.statValue}>{stats.totalClientes}</Text>
+            <Text style={styles.statValue}>{totalClientes}</Text>
           </View>
         </View>
 
@@ -62,6 +68,28 @@ export default function PerfilPage() {
           </Text>
         </View>
 
+
+        <View style={{ marginTop: 20 }}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert('Sair', 'Deseja realmente sair?', [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Sair',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await AsyncStorage.removeItem('@osfacil:token');
+                    
+                    router.replace('/login');
+                  }
+                }
+              ]);
+            }}
+          >
+            <Text style={styles.logoutText}>Sair</Text>
+          </TouchableOpacity>
+        </View>
 		
       </Container>
     </ScrollView>
@@ -119,4 +147,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     lineHeight: 18,
   },
+  logoutButton: {
+    backgroundColor: '#ff4d4f',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: '#fff',
+    fontWeight: '700',
+  }
+  ,
+  profileBox: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'flex-start'
+  },
+  profileName: { fontSize: 18, fontWeight: '700', marginBottom: 4, color: '#2C3E50' },
+  profileText: { fontSize: 14, color: '#555' },
 });

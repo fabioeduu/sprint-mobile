@@ -1,23 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import Container from '../../components/Container';
-import { getOrdens } from '../../src/services/orders';
+import { useOrdens } from '../../src/hooks';
 import { useRouter } from 'expo-router';
 
 export default function BuscaPage() {
 	const [query, setQuery] = useState('');
-	const [ordens, setOrdens] = useState<any[]>([]);
+	const { ordens } = useOrdens();
 	const router = useRouter();
 
-	useEffect(() => {
-		let mounted = true;
-		const load = async () => {
-			const data = await getOrdens();
-			if (mounted) setOrdens(data.reverse());
-		};
-		load();
-		return () => { mounted = false; };
-	}, []);
+	
 
 	const results = useMemo(() => {
 		const q = query.trim().toLowerCase();

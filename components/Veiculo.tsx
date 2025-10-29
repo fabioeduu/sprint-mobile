@@ -1,16 +1,14 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import Container from './Container';
-import { getVeiculos, createVeiculo, updateVeiculo, deleteVeiculo, getVeiculoById } from '../src/services/veiculos';
-import { getClientes } from '../src/services/clientes';
+import { useVeiculos, useClientes } from '../src/hooks';
 import { Veiculo as VeiculoType, Cliente } from '../src/types';
-import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function Veiculo() {
   const [mode, setMode] = useState<'listar' | 'criar' | 'editar'>('listar');
-  const [veiculos, setVeiculos] = useState<VeiculoType[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const { veiculos, loading: loadingVeiculos, load: loadVeiculos, criar, atualizar, remover } = useVeiculos();
+  const { clientes, loading: loadingClientes } = useClientes();
 
   const [clienteId, setClienteId] = useState<string>('');
   const [marca, setMarca] = useState('');
@@ -25,32 +23,11 @@ export default function Veiculo() {
 
   useEffect(() => {
     if (paramClienteId) {
-      // pre-fill clienteId and open create mode when navigated with ?clienteId=...
       setClienteId(String(paramClienteId));
       setMode('criar');
     }
   }, [paramClienteId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let mounted = true;
-      const load = async () => {
-        const v = await getVeiculos();
-        const c = await getClientes();
-        if (mounted) {
-          setVeiculos(v.reverse());
-          setClientes(c);
-        }
-      };
-      load();
-      return () => { mounted = false; };
-    }, [])
-  );
-
-  const refresh = async () => {
-    const v = await getVeiculos();
-    setVeiculos(v.reverse());
-  };
 
   const salvarNovo = async () => {
     try {
@@ -58,11 +35,11 @@ export default function Veiculo() {
         Alert.alert('Erro', 'Cliente, marca e placa são obrigatórios');
         return;
       }
-      await createVeiculo({ clienteId, marca, modelo, placa, ano, cor });
+      await criar({ clienteId, marca, modelo, placa, ano, cor });
       Alert.alert('Sucesso', 'Veículo criado');
       setMarca(''); setModelo(''); setPlaca(''); setAno(''); setCor(''); setClienteId('');
       setMode('listar');
-      await refresh();
+      // hook reloads list
     } catch (e) {
       console.error(e);
       Alert.alert('Erro', 'Não foi possível salvar o veículo');
@@ -70,7 +47,7 @@ export default function Veiculo() {
   };
 
   const abrirEditar = async (id: string) => {
-    const v = await getVeiculoById(id);
+    const v = veiculos.find(x => x.id === id);
     if (v) {
       setSelected(v);
       setClienteId(v.clienteId);
@@ -87,11 +64,11 @@ export default function Veiculo() {
     if (!selected) return;
     try {
       const updated: VeiculoType = { ...selected, clienteId, marca, modelo, placa, ano, cor };
-      await updateVeiculo(updated);
+      await atualizar(updated);
       Alert.alert('Sucesso', 'Veículo atualizado');
       setSelected(null);
       setMode('listar');
-      await refresh();
+      // hook reloads
     } catch (e) {
       console.error(e);
       Alert.alert('Erro', 'Não foi possível atualizar o veículo');
@@ -101,7 +78,7 @@ export default function Veiculo() {
   const handleDelete = (id: string) => {
     Alert.alert('Confirmar', 'Deseja excluir este veículo?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: async () => { await deleteVeiculo(id); await refresh(); } }
+      { text: 'Excluir', style: 'destructive', onPress: async () => { await remover(id); } }
     ]);
   };
 

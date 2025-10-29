@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import Container from "../../components/Container";
-import { getClientes, deleteCliente, createCliente, updateCliente, getClienteById } from '../../src/services/clientes';
-import { useFocusEffect } from "@react-navigation/native";
+import { useClientes } from '../../src/hooks';
 import { useLocalSearchParams } from "expo-router";
 import { Cliente } from '../../src/types';
 
@@ -11,7 +10,7 @@ type Tab = 'listar' | 'criar' | 'editar';
 export default function ClientesPage() {
   const { id: queryId } = useLocalSearchParams();
   const [tab, setTab] = useState<Tab>('listar');
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const { clientes, loading, load, criar, atualizar, remover } = useClientes();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -22,28 +21,28 @@ export default function ClientesPage() {
   const [editTelefone, setEditTelefone] = useState('');
   const [editEndereco, setEditEndereco] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      let mounted = true;
-      const load = async () => {
-        const data = await getClientes();
-        if (mounted) setClientes(data.reverse());
-        if (queryId && mounted) {
-          const c = await getClienteById(String(queryId));
-          if (c) {
-            setSelectedCliente(c);
-            setEditNome(c.nome);
-            setEditEmail(c.email || '');
-            setEditTelefone(c.telefone || '');
-            setEditEndereco(c.endereco || '');
-            setTab('editar');
-          }
+  
+  React.useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      
+      if (loading) return;
+      if (!mounted) return;
+      if (queryId) {
+        const c = clientes.find(c => c.id === String(queryId));
+        if (c) {
+          setSelectedCliente(c);
+          setEditNome(c.nome);
+          setEditEmail(c.email || '');
+          setEditTelefone(c.telefone || '');
+          setEditEndereco(c.endereco || '');
+          setTab('editar');
         }
-      };
-      load();
-      return () => { mounted = false; };
-    }, [queryId])
-  );
+      }
+    };
+    check();
+    return () => { mounted = false; };
+  }, [queryId, loading, clientes]);
 
   const salvarNovo = async () => {
     try {
@@ -51,22 +50,21 @@ export default function ClientesPage() {
         Alert.alert('Erro', 'Preencha o nome');
         return;
       }
-      await createCliente({ nome, email, telefone, endereco });
+      await criar({ nome, email, telefone, endereco });
       Alert.alert('Sucesso', 'Cliente criado');
       setNome('');
       setEmail('');
       setTelefone('');
       setEndereco('');
       setTab('listar');
-      const data = await getClientes();
-      setClientes(data.reverse());
+      
     } catch (e) {
       Alert.alert('Erro', 'Não foi possível salvar');
     }
   };
 
   const abrirEditar = async (id: string) => {
-    const c = await getClienteById(id);
+    const c = clientes.find(c => c.id === id);
     if (c) {
       setSelectedCliente(c);
       setEditNome(c.nome);
@@ -81,11 +79,10 @@ export default function ClientesPage() {
     if (!selectedCliente) return;
     try {
       const updated: Cliente = { ...selectedCliente, nome: editNome, email: editEmail, telefone: editTelefone, endereco: editEndereco };
-      await updateCliente(updated);
+      await atualizar(updated);
       Alert.alert('Sucesso', 'Cliente atualizado');
       setTab('listar');
-      const data = await getClientes();
-      setClientes(data.reverse());
+      
     } catch (e) {
       Alert.alert('Erro', 'Não foi possível atualizar');
     }
@@ -98,9 +95,7 @@ export default function ClientesPage() {
         text: 'Excluir',
         style: 'destructive',
         onPress: async () => {
-          await deleteCliente(id);
-          const data = await getClientes();
-          setClientes(data.reverse());
+          await remover(id);
         }
       }
     ]);

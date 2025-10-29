@@ -1,10 +1,7 @@
 ﻿import React, { useCallback, useState } from "react";
 import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import Container from "../../components/Container";
-import { getOrdens, deleteOrdem, createOrdem, updateOrdem, getOrdemById } from "../../src/services/orders";
-import { getClientes } from "../../src/services/clientes";
-import { getVeiculos } from "../../src/services/veiculos";
-import { useFocusEffect } from "@react-navigation/native";
+import { useOrdens, useClientes, useVeiculos } from "../../src/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Servico, Cliente } from "../../src/types";
 
@@ -13,9 +10,9 @@ type Tab = "listar" | "criar" | "editar";
 export default function OrdensPage() {
   const { id: queryId } = useLocalSearchParams();
   const [tab, setTab] = useState<Tab>("listar");
-  const [ordens, setOrdens] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [veiculos, setVeiculos] = useState<any[]>([]);
+  const { ordens, loading: loadingOrdens, load: loadOrdens, criar, atualizar, remover } = useOrdens();
+  const { clientes } = useClientes();
+  const { veiculos } = useVeiculos();
   const [defeito, setDefeito] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [clienteId, setClienteId] = useState<string>("");
@@ -32,32 +29,19 @@ export default function OrdensPage() {
   const [showVeiculoList, setShowVeiculoList] = useState(false);
   const router = useRouter();
 
-  useFocusEffect(
-    useCallback(() => {
-      let mounted = true;
-      const load = async () => {
-        const data = await getOrdens();
-        const clientesData = await getClientes();
-        const veiculosData = await getVeiculos();
-        if (mounted) {
-          setOrdens(data.reverse());
-          setClientes(clientesData);
-          setVeiculos(veiculosData);
-        }
-        if (queryId && mounted) {
-          const o = await getOrdemById(String(queryId));
-          if (o) {
-            setSelectedOrdem(o);
-            setEditObservacoes(o.observacoes || "");
-            setEditStatus(o.status || "ABERTA");
-            setTab("editar");
-          }
-        }
-      };
-      load();
-      return () => { mounted = false; };
-    }, [queryId])
-  );
+  React.useEffect(() => {
+    
+    if (loadingOrdens) return;
+    if (queryId) {
+      const o = ordens.find(x => x.id === String(queryId));
+      if (o) {
+        setSelectedOrdem(o);
+        setEditObservacoes(o.observacoes || "");
+        setEditStatus(o.status || "ABERTA");
+        setTab("editar");
+      }
+    }
+  }, [queryId, loadingOrdens, ordens]);
 
   const addServico = () => {
     if (!servicoDesc || !servicoValor) {
@@ -73,7 +57,7 @@ export default function OrdensPage() {
     setClienteId(cliente.id);
     setClienteSelecionado(cliente);
     setShowClienteList(false);
-    // reset vehicle selection when client changes
+    
     setVeiculoId('');
     setVeiculoSelecionado(null);
   };
@@ -98,7 +82,7 @@ export default function OrdensPage() {
         Alert.alert('Erro', 'Selecione o veículo do cliente');
         return;
       }
-      await createOrdem({ 
+      await criar({ 
         defeito, 
         observacoes, 
         servicos, 
@@ -115,15 +99,14 @@ export default function OrdensPage() {
       setVeiculoSelecionado(null);
       setServicos([]);
       setTab("listar");
-      const data = await getOrdens();
-      setOrdens(data.reverse());
+      
     } catch (e) {
       Alert.alert("Erro", "Não foi possível salvar");
     }
   };
 
   const abrirEditar = async (id: string) => {
-    const o = await getOrdemById(id);
+    const o = ordens.find(x => x.id === id);
     if (o) {
       setSelectedOrdem(o);
       setEditObservacoes(o.observacoes || "");
@@ -136,11 +119,10 @@ export default function OrdensPage() {
     if (!selectedOrdem) return;
     try {
       const updated = { ...selectedOrdem, observacoes: editObservacoes, status: editStatus };
-      await updateOrdem(updated);
+      await atualizar(updated);
       Alert.alert("Sucesso", "Ordem atualizada");
       setTab("listar");
-      const data = await getOrdens();
-      setOrdens(data.reverse());
+      
     } catch (e) {
       Alert.alert("Erro", "Não foi possível atualizar");
     }
@@ -153,9 +135,7 @@ export default function OrdensPage() {
         text: "Excluir",
         style: "destructive",
         onPress: async () => {
-          await deleteOrdem(id);
-          const data = await getOrdens();
-          setOrdens(data.reverse());
+          await remover(id);
         }
       }
     ]);

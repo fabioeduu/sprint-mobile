@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from 'react-native';
-import { createOrdem } from '../src/services/orders';
+import { useOrdens } from '../src/hooks';
 import { useRouter } from 'expo-router';
 import { Servico } from '../src/types';
 import Container from './Container';
@@ -23,11 +23,12 @@ export default function Ordem() {
     setServicoDesc('');
     setServicoValor('');
   };
+  const { criar } = useOrdens();
 
   const salvar = async () => {
     try {
-      const ordem = await createOrdem({ defeito, observacoes, servicos, status: 'ABERTA' });
-      Alert.alert('Ordem criada', `Ordem #${ordem.numero} criada com sucesso`);
+      const ordem = await criar({ defeito, observacoes, servicos, status: 'ABERTA' } as any);
+      Alert.alert('Ordem criada', `Ordem #${ordem?.numero || ''} criada com sucesso`);
       setDefeito(''); setObservacoes(''); setServicos([]);
       router.push('/(tabs)/ordem');
     } catch (e) {
